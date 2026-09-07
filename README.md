@@ -82,6 +82,28 @@ curl 'http://127.0.0.1:9224/eval?expr=document.documentElement.outerHTML'
 
 `network.*`, `input.*` and `storage.*` are not implemented.
 
+## Use it as a library
+
+The driver lives in `github.com/0magnet/wfdrive/bidi`, so a Go program can
+embed it instead of shelling out. `skywire cli hv` does exactly that.
+
+```go
+d, err := bidi.Connect(ctx, "9223")
+if err != nil { return err }
+defer d.End() // MUST run on every exit path, signals included
+
+title, err := d.Eval("document.title")
+```
+
+`bidi.Serve(ctx, bidiPort, ctrlAddr, announce)` is this command's serve mode,
+so a host program can offer the same persistent control port under its own
+name.
+
+`Connect` waits out a lagging prior teardown, and every operation goes through
+`WithTab`, which repairs a closed tab or a dropped socket in place. `End`
+releases the session — skip it and the next client waits for a browser
+restart.
+
 ## Alternatives
 
 [`hupe1980/gowebdriver`](https://github.com/hupe1980/gowebdriver) is the closest
