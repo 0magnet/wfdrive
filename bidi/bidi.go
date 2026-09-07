@@ -378,3 +378,64 @@ func (d *Driver) End() {
 		}
 	})
 }
+
+// Context is one browsing context in the tree browsingContext.getTree returns.
+type Context struct {
+	Context  string    `json:"context"`
+	URL      string    `json:"url"`
+	Children []Context `json:"children"`
+}
+
+// Attach connects and establishes the session WITHOUT opening a tab, leaving
+// the driver pointed at nothing until UseTab or OpenTab.
+//
+// This is what a one-shot inspection wants. Connect opens a fresh tab, which is
+// right for watching a load and wrong for reading state: a new tab has none of
+// the state the caller came to look at, and answers document.title with the
+// empty string rather than saying so.
+//
+// The caller MUST still call End on every exit path.
+func Attach(ctx context.Context, port string) (*Driver, error) {
+	d := &Driver{ctx: ctx, waiters: map[int]chan Msg{}, port: port}
+	if err := d.dial(); err != nil {
+		return nil, err
+	}
+	if err := d.NewSession(); err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
+// Tabs lists the top-level browsing contexts currently open.
+func (d *Driver) Tabs() ([]Context, error) {
+	res, err := d.Command("browsingContext.getTree", map[string]interface{}{})
+	if err != nil {
+		return nil, err
+	}
+	var t struct {
+		Contexts []Context `json:"contexts"`
+	}
+	if err := json.Unmarshal(res, &t); err != nil {
+		return nil, err
+	}
+	return t.Contexts, nil
+}
+
+// UseTab points this driver at an existing browsing context.
+func (d *Driver) UseTab(bctx string) {
+	d.mu.Lock()
+	d.bctx = bctx
+	d.mu.Unlock()
+}
+
+// CloseTab closes the tab this driver is pointed at. A one-shot that opened its
+// own tab should call this before End, or every invocation leaves a blank tab
+// behind.
+func (d *Driver) CloseTab() error {
+	bctx := d.Tab()
+	if bctx == "" {
+		return nil
+	}
+	_, err := d.Command("browsingContext.close", map[string]interface{}{"context": bctx})
+	return err
+}
