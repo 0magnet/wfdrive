@@ -56,11 +56,18 @@ import (
 
 func serveMode() error {
 	if len(os.Args) < 4 {
-		return fmt.Errorf("usage: wfdrive serve <bidiPort> <ctrlAddr>")
+		return fmt.Errorf("usage: wfdrive serve <bidiPort> <ctrlAddr> [tabURLSubstring]")
 	}
 	port, ctrlAddr := os.Args[2], os.Args[3]
-	return bidi.Serve(context.Background(), port, ctrlAddr, func(tab string) {
-		fmt.Printf("wfdrive serving control on http://%s (BiDi :%s, tab %s)\n", ctrlAddr, port, tab)
+	// An optional third argument re-attaches to a tab that is already open,
+	// matched on a substring of its URL, instead of opening a blank one — how a
+	// driver that died gets its tab back rather than abandoning it.
+	tab := ""
+	if len(os.Args) > 4 {
+		tab = os.Args[4]
+	}
+	return bidi.Serve(context.Background(), port, ctrlAddr, tab, func(t string) {
+		fmt.Printf("wfdrive serving control on http://%s (BiDi :%s, tab %s)\n", ctrlAddr, port, t)
 	})
 }
 
@@ -72,6 +79,6 @@ func main() {
 		}
 		return
 	}
-	fmt.Fprintln(os.Stderr, "usage: wfdrive serve <bidiPort> <ctrlAddr>   (persistent driver)")
+	fmt.Fprintln(os.Stderr, "usage: wfdrive serve <bidiPort> <ctrlAddr> [tabURLSubstring]   (persistent driver)")
 	os.Exit(2)
 }

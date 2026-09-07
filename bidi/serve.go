@@ -49,10 +49,26 @@ func writeCapture(seq uint64, ext string, b []byte) string {
 //	/shoot                  capture the tab as it stands
 //	/health                 is the session and tab still usable
 //	/quit                   session.end and exit
-func Serve(ctx context.Context, port, ctrlAddr string, announce func(tab string)) error {
+//
+// tab selects which tab to drive. Empty opens a fresh one, which is the right
+// default. A non-empty value is matched as a substring of the URL of a tab that
+// is already open, and is how a driver that died gets its tab back: the session
+// is stranded either way until the browser restarts, so a replacement driver
+// that opens a blank tab instead of resuming the old one loses the state that
+// made the tab worth driving.
+func Serve(ctx context.Context, port, ctrlAddr, tab string, announce func(tab string)) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	d, err := Connect(ctx, port)
+	var d *Driver
+	var err error
+	if tab == "" {
+		d, err = Connect(ctx, port)
+	} else {
+		d, err = Attach(ctx, port)
+		if err == nil {
+			_, err = d.AttachTab(tab)
+		}
+	}
 	if err != nil {
 		return err
 	}
