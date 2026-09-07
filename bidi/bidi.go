@@ -439,3 +439,30 @@ func (d *Driver) CloseTab() error {
 	_, err := d.Command("browsingContext.close", map[string]interface{}{"context": bctx})
 	return err
 }
+
+// AttachTab points the driver at a tab that is already open, chosen by a
+// substring of its URL — empty takes the first — and returns the URL it
+// settled on.
+//
+// The URL is returned rather than logged because the caller has to say it:
+// Firefox has no per-tab address to pass around the way CDP does, so "the first
+// tab" is the whole selector by default, and a browser with several tabs open
+// would otherwise answer about the wrong one without either side noticing.
+func (d *Driver) AttachTab(want string) (string, error) {
+	tabs, err := d.Tabs()
+	if err != nil {
+		return "", fmt.Errorf("list tabs: %w", err)
+	}
+	if len(tabs) == 0 {
+		return "", fmt.Errorf("no tabs open")
+	}
+	open := make([]string, 0, len(tabs))
+	for _, t := range tabs {
+		if want == "" || strings.Contains(t.URL, want) {
+			d.UseTab(t.Context)
+			return t.URL, nil
+		}
+		open = append(open, t.URL)
+	}
+	return "", fmt.Errorf("no open tab matches %q; open: %s", want, strings.Join(open, ", "))
+}
