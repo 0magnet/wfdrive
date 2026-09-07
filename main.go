@@ -1,8 +1,11 @@
 // Command wfdrive is a headless inspector/driver for Waterfox and Firefox,
 // speaking WebDriver BiDi. Waterfox 6.6 (Firefox ESR 128+) dropped the CDP
 // Remote Agent but still speaks BiDi, so this drives the browser over the BiDi
-// websocket directly — no geckodriver, no Selenium, one dependency
-// (github.com/coder/websocket).
+// websocket directly — no geckodriver, no Selenium.
+//
+// The bidi package, which is what other programs import, still needs only
+// github.com/coder/websocket. cobra and calvin/clihelp are this command's, for
+// the help menu, and nothing importing bidi compiles them.
 //
 // Firefox BiDi permits ONE active session and does NOT release it when the owning
 // socket drops, so one-shot invocations churn into "Maximum number of active
@@ -51,34 +54,54 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
+	"github.com/0magnet/calvin/clihelp"
 	"github.com/0magnet/wfdrive/bidi"
 )
 
-func serveMode() error {
-	if len(os.Args) < 4 {
-		return fmt.Errorf("usage: wfdrive serve <bidiPort> <ctrlAddr> [tabURLSubstring]")
-	}
-	port, ctrlAddr := os.Args[2], os.Args[3]
-	// An optional third argument re-attaches to a tab that is already open,
-	// matched on a substring of its URL, instead of opening a blank one — how a
-	// driver that died gets its tab back rather than abandoning it.
-	tab := ""
-	if len(os.Args) > 4 {
-		tab = os.Args[4]
-	}
-	return bidi.Serve(context.Background(), port, ctrlAddr, tab, func(t string) {
-		fmt.Printf("wfdrive serving control on http://%s (BiDi :%s, tab %s)\n", ctrlAddr, port, t)
-	})
+var rootCmd = &cobra.Command{
+	Use:                   "wfdrive",
+	Short:                 "headless inspector and driver for Waterfox / Firefox, over WebDriver BiDi",
+	SilenceErrors:         true,
+	SilenceUsage:          true,
+	DisableFlagsInUseLine: true,
+}
+
+// serveCmd keeps the positional shape the tool always had. The arguments are
+// positional rather than flags because that is how it is already invoked, from
+// scripts and from skywire, and a driver that changed its own call signature to
+// gain a help menu would be a poor trade.
+var serveCmd = &cobra.Command{
+	Use:   "serve <bidiPort> <ctrlAddr> [tabURLSubstring]",
+	Short: "run the persistent driver",
+	Long: "Run the persistent driver: one long-lived BiDi session and tab, driven\n" +
+		"over a small local HTTP control port.\n\n" +
+		"Firefox permits one active BiDi session and does not release it when the\n" +
+		"owning socket drops, so this stays up rather than reconnecting per call.",
+	Args: cobra.RangeArgs(2, 3),
+	RunE: func(_ *cobra.Command, args []string) error {
+		port, ctrlAddr := args[0], args[1]
+		// The optional third argument re-attaches to a tab that is already
+		// open, matched on a substring of its URL, instead of opening a blank
+		// one — how a driver that died gets its tab back rather than
+		// abandoning it.
+		tab := ""
+		if len(args) > 2 {
+			tab = args[2]
+		}
+		return bidi.Serve(context.Background(), port, ctrlAddr, tab, func(t string) {
+			fmt.Printf("wfdrive serving control on http://%s (BiDi :%s, tab %s)\n", ctrlAddr, port, t)
+		})
+	},
 }
 
 func main() {
-	if len(os.Args) >= 2 && os.Args[1] == "serve" {
-		if err := serveMode(); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		return
+	rootCmd.AddCommand(serveCmd)
+	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
+	clihelp.Init(rootCmd, "wfdrive", true)
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
-	fmt.Fprintln(os.Stderr, "usage: wfdrive serve <bidiPort> <ctrlAddr> [tabURLSubstring]   (persistent driver)")
-	os.Exit(2)
 }
