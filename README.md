@@ -1,7 +1,8 @@
 # wfdrive
 
 A headless inspector and driver for **Waterfox / Firefox**, speaking WebDriver
-BiDi directly. No geckodriver, no Selenium, one dependency.
+BiDi directly. No geckodriver, no Selenium. The `bidi` package needs only
+`github.com/coder/websocket`; the command adds cobra and calvin for its help menu.
 
 Waterfox 6.6 (Firefox ESR 128+) dropped the CDP Remote Agent, so the usual
 chromedp-shaped tooling no longer works against it. Firefox does still speak
@@ -52,11 +53,17 @@ curl  http://127.0.0.1:9224/quit
 
 | Endpoint | Does |
 |---|---|
-| `/nav` | `browsingContext.navigate` with `wait: complete`, optional JS after load |
+| `/nav` | `browsingContext.navigate` (returns once the load completes), then sleeps `wait` seconds (default 8), then optional JS |
 | `/eval` | `script.evaluate` with `awaitPromise`, no navigation |
 | `/shoot` | `browsingContext.captureScreenshot`, decoded to PNG |
 | `/health` | `browsingContext.getTree` — is the session and tab still usable |
 | `/quit` | `session.end`, then exit |
+
+The command line is `wfdrive serve <bidiPort> <ctrlAddr> [tabURLSubstring]`. With
+the optional third argument the driver does not open a blank tab; it re-attaches
+to an open tab whose URL contains that substring. That is the recovery path
+after a driver dies: the session is stranded either way until the browser
+restarts, so the replacement resumes the old tab.
 
 Console output is captured continuously from `log.entryAdded` and written
 alongside each capture.
@@ -95,14 +102,27 @@ defer d.End() // MUST run on every exit path, signals included
 title, err := d.Eval("document.title")
 ```
 
-`bidi.Serve(ctx, bidiPort, ctrlAddr, announce)` is this command's serve mode,
-so a host program can offer the same persistent control port under its own
-name.
+`bidi.Serve(ctx, port, ctrlAddr, tab string, announce func(tab string)) error`
+is this command's serve mode, so a host program can offer the same persistent
+control port under its own name. An empty `tab` opens a fresh one; otherwise it
+is a URL substring, as above.
 
 `Connect` waits out a lagging prior teardown, and every operation goes through
 `WithTab`, which repairs a closed tab or a dropped socket in place. `End`
 releases the session — skip it and the next client waits for a browser
 restart.
+
+The rest of the API. `Connect` (new session and a fresh tab), `Attach` (new
+session, no tab opened) and `Gone(err)` (does an error mean the session or tab
+has gone) are package functions; the others are methods on `*Driver`:
+
+- Sessions: `NewSession`, `Subscribe`, `End`.
+- Tabs: `Tabs`, `AttachTab` (by URL substring), `UseTab`, `OpenTab`, `CloseTab`,
+  `Tab`.
+- Work: `Eval`, `Navigate`, `Screenshot`, `Command` (any BiDi method),
+  `OnEvent`, `Console`, `ResetConsole`, `Health`.
+- Recovery: `Recover`, and `WithTab`, which runs a function against the tab and
+  repairs it first if it is gone.
 
 ## Alternatives
 
