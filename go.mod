@@ -3,7 +3,7 @@ module github.com/0magnet/wfdrive
 go 1.26.0
 
 require (
-	github.com/0magnet/calvin v0.0.1-0.20261004205601-db77b5906bf6
+	github.com/0magnet/calvin v0.0.1-0.20261008155441-86637b449fe0
 	github.com/coder/websocket v1.8.15
 	github.com/spf13/cobra v1.10.2
 )
