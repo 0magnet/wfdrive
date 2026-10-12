@@ -99,7 +99,7 @@ var serveCmd = &cobra.Command{
 func main() {
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
-	clihelp.Init(rootCmd, "wfdrive", true)
+	clihelp.Init(rootCmd, "wfdrive")
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
