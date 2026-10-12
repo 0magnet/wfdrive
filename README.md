@@ -135,3 +135,37 @@ not target Gecko at all.
 
 Extracted from [skywire](https://github.com/skycoin/skywire), where it drives
 the browser-side test rig.
+
+## Dependency Graph
+
+Made with [goda](https://github.com/loov/goda):
+
+```
+# GOOS=js: the import edges of a wasm program live in js/wasm-tagged
+# files and are invisible to a host-context run
+GOOS=js GOARCH=wasm go run github.com/loov/goda@latest graph github.com/0magnet/wfdrive/... | dot -Tsvg -o docs/wfdrive-goda-graph.svg
+```
+
+![Dependency Graph](docs/wfdrive-goda-graph.svg "github.com/0magnet/wfdrive Dependency Graph")
+
+## Lines of Code
+
+Made with [gocloc](https://github.com/hhatto/gocloc) (excludes `vendor/`, `node_modules/`, `.git/`):
+
+```
+gocloc --not-match-d='(vendor|node_modules|\.git)' .
+```
+
+```
+-------------------------------------------------------------------------------
+Language                     files          blank        comment           code
+-------------------------------------------------------------------------------
+Go                               5             60            199            530
+Markdown                         1             40              0            130
+Makefile                         1             21             52            111
+YAML                             1              0              7             98
+Bourne Shell                     1              8             17             31
+-------------------------------------------------------------------------------
+TOTAL                            9            129            275            900
+-------------------------------------------------------------------------------
+```
